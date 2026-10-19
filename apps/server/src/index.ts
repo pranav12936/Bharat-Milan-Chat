@@ -1,5 +1,4 @@
-﻿
-import Fastify from 'fastify';
+﻿import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -35,7 +34,10 @@ app.setErrorHandler((error, request, reply) => {
     return reply.code(401).send({ error: 'Unauthenticated' });
   }
 
-  if (error instanceof Error && error.message === 'Conversation access denied') {
+  if (
+    error instanceof Error &&
+    error.message === 'Conversation access denied'
+  ) {
     return reply.code(403).send({ error: 'Conversation access denied' });
   }
 
@@ -240,7 +242,8 @@ app.post('/auth/bharat-milan', async (req, reply) => {
     }),
     {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite:
+        config.NODE_ENV === 'production' ? 'none' : 'lax',
       secure: config.NODE_ENV === 'production',
       path: '/',
     },
@@ -302,8 +305,9 @@ app.post('/auth/demo/:user', async (req, reply) => {
     }),
     {
       httpOnly: true,
-      sameSite: 'none',
-secure: config.NODE_ENV === 'production',
+      sameSite:
+        config.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: config.NODE_ENV === 'production',
       path: '/',
     },
   );
