@@ -15,7 +15,7 @@ export async function eligible(a: string, b: string): Promise<boolean> {
     return demoStates.get(pair(a, b)) === 'accepted';
   }
 
-  if (!config.BHARAT_MILAN_ELIGIBILITY_URL || !config.BHARAT_MILAN_SERVICE_TOKEN) {
+  if (!config.BHARAT_MILAN_ELIGIBILITY_URL || !config.BHARAT_MILAN_CHAT_SERVICE_TOKEN) {
     console.error('[chat eligibility] Missing eligibility URL or service token.');
     return false;
   }
@@ -25,7 +25,7 @@ export async function eligible(a: string, b: string): Promise<boolean> {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${config.BHARAT_MILAN_SERVICE_TOKEN}`,
+        authorization: `Bearer ${config.BHARAT_MILAN_CHAT_SERVICE_TOKEN}`,
       },
       body: JSON.stringify({
         senderUserId: a,
@@ -84,3 +84,4 @@ export function setDemoEligibility(
 
   demoStates.set(pair(a, b), status);
 }
+

@@ -44,7 +44,7 @@ const schema = z.object({
     .transform(value => value.trim() || undefined)
     .pipe(z.string().url().optional()),
 
-  BHARAT_MILAN_SERVICE_TOKEN: z
+  BHARAT_MILAN_CHAT_SERVICE_TOKEN: z
     .string()
     .transform(value => value.trim() || undefined)
     .pipe(z.string().min(32).optional()),
@@ -58,3 +58,4 @@ if (
 ) {
   throw new Error('Demo features are forbidden in production');
 }
+
