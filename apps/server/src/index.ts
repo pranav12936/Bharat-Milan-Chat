@@ -38,10 +38,23 @@ app.setErrorHandler((error, request, reply) => {
 
 await app.register(cookie);
 
+
+const allowedOrigins = [
+  ...new Set([
+    config.WEB_ORIGIN,
+    'https://bharat-milan.onrender.com',
+    'https://bharat-milan-chat1.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:5173',
+  ]),
+];
+
 await app.register(cors, {
-  origin: config.WEB_ORIGIN,
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 });
+
 
 await app.register(helmet);
 
@@ -52,12 +65,15 @@ await app.register(multipart, {
   },
 });
 
+
 const io = new Server(app.server, {
   cors: {
-    origin: config.WEB_ORIGIN,
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST'],
   },
 });
+
 
 async function session(req: {
   cookies: Record<string, string | undefined>;
