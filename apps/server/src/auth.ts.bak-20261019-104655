@@ -1,0 +1,45 @@
+﻿import { SignJWT, jwtVerify } from 'jose';
+import { config } from './config.js';
+const key = new TextEncoder().encode(config.SESSION_SECRET);
+export type Session = { identityId: string; externalUserId: string; source: string };
+export async function signSession(session: Session, expiresIn = '8h') { return new SignJWT(session).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime(expiresIn).setIssuer('bharat-milan-chat').setAudience('bharat-milan-chat-web').sign(key); }
+export async function readSession(token?: string): Promise<Session> { if (!token) throw new Error('Unauthenticated'); const result = await jwtVerify(token, key, { issuer: 'bharat-milan-chat', audience: 'bharat-milan-chat-web' }); const p = result.payload; if (typeof p.identityId !== 'string' || typeof p.externalUserId !== 'string' || typeof p.source !== 'string') throw new Error('Invalid session'); return { identityId: p.identityId, externalUserId: p.externalUserId, source: p.source }; }
+
+
+export async function verifyBharatMilanToken(token: string): Promise<{
+  userId: string;
+  displayName: string;
+}> {
+  const secret = config.BHARAT_MILAN_JWT_SECRET;
+
+  if (!secret || secret.length < 32) {
+    throw new Error('Bharat Milan JWT verification is not configured');
+  }
+
+  if (!token || token.length > 10000) {
+    throw new Error('Invalid Bharat Milan token');
+  }
+
+  const { payload } = await jwtVerify(
+    token,
+    new TextEncoder().encode(secret),
+    {
+      algorithms: ['HS256'],
+      issuer: 'bharat-milan',
+      audience: 'bharat-milan-app',
+    },
+  );
+
+  if (typeof payload.sub !== 'string' || !payload.sub ||
+      typeof payload.sid !== 'string' || !payload.sid) {
+    throw new Error('Invalid Bharat Milan session token');
+  }
+
+  return {
+    userId: payload.sub,
+    displayName:
+      typeof payload.name === 'string' && payload.name.trim()
+        ? payload.name.trim().slice(0, 120)
+        : 'Bharat Milan Member',
+  };
+}

@@ -1,0 +1,15 @@
+{
+  "name": "bharat-milan-chat",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm --prefix apps/server run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/server run build && npm --prefix apps/web run build",
+    "typecheck": "npm --prefix apps/server run typecheck && npm --prefix apps/web run typecheck",
+    "test": "npm --prefix apps/server run test && npm --prefix apps/web run test",
+    "db:generate": "npm --prefix apps/server run db:generate",
+    "db:migrate": "npm --prefix apps/server run db:migrate",
+    "db:seed": "npm --prefix apps/server run db:seed"
+  }
+}
