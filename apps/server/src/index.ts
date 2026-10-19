@@ -15,7 +15,13 @@ import {
   mediaMessages,
   textMessages,
 } from './db/schema.js';
-import { AuthenticationError, readSession, signSession, verifyBharatMilanToken, type Session } from './auth.js';
+import {
+  AuthenticationError,
+  readSession,
+  signSession,
+  verifyBharatMilanToken,
+  type Session,
+} from './auth.js';
 import { eligible, setDemoEligibility } from './eligibility.js';
 import { mediaUrl, saveMedia, validateMedia } from './storage.js';
 
@@ -23,6 +29,7 @@ const app = Fastify({
   logger: true,
   bodyLimit: 110_000_000,
 });
+
 app.setErrorHandler((error, request, reply) => {
   if (error instanceof AuthenticationError) {
     return reply.code(401).send({ error: 'Unauthenticated' });
@@ -36,25 +43,23 @@ app.setErrorHandler((error, request, reply) => {
   return reply.code(500).send({ error: 'Internal server error' });
 });
 
-await app.register(cookie);
-
-
+// Allow the configured frontend, the original Bharat Milan site,
+// and the separately deployed Bharat Milan Chat frontend.
 const allowedOrigins = [
   ...new Set([
     config.WEB_ORIGIN,
     'https://bharat-milan.onrender.com',
     'https://bharat-milan-chat1.onrender.com',
-    'http://localhost:3000',
-    'http://localhost:5173',
   ]),
 ];
+
+await app.register(cookie);
 
 await app.register(cors, {
   origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 });
-
 
 await app.register(helmet);
 
@@ -65,7 +70,6 @@ await app.register(multipart, {
   },
 });
 
-
 const io = new Server(app.server, {
   cors: {
     origin: allowedOrigins,
@@ -73,7 +77,6 @@ const io = new Server(app.server, {
     methods: ['GET', 'POST'],
   },
 });
-
 
 async function session(req: {
   cookies: Record<string, string | undefined>;
@@ -143,7 +146,7 @@ async function resolveBharatMilanDisplayName(
   }
 }
 
-// Health check now reports Cloudinary configuration.
+// Health check reports Cloudinary configuration.
 app.get('/health', async () => ({
   ok: true,
   storageConfigured: Boolean(
@@ -152,7 +155,6 @@ app.get('/health', async () => ({
       config.CLOUDINARY_API_SECRET,
   ),
 }));
-
 
 app.post('/auth/bharat-milan', async (req, reply) => {
   const authorization = req.headers.authorization;
@@ -300,8 +302,8 @@ app.post('/auth/demo/:user', async (req, reply) => {
     }),
     {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: config.NODE_ENV === 'production',
+      sameSite: 'none',
+secure: config.NODE_ENV === 'production',
       path: '/',
     },
   );
@@ -358,7 +360,6 @@ app.post('/demo/eligibility', async (req, reply) => {
   return { ok: true };
 });
 
-
 app.post('/conversations/with/:externalUserId', async (req, reply) => {
   const s = await session(req);
   const other = (req.params as { externalUserId: string }).externalUserId;
@@ -382,7 +383,6 @@ app.post('/conversations/with/:externalUserId', async (req, reply) => {
     });
   }
 
-  // Find the signed-in member and selected contact within Bharat Milan.
   let people = await db
     .select()
     .from(identities)
@@ -393,7 +393,6 @@ app.post('/conversations/with/:externalUserId', async (req, reply) => {
       ),
     );
 
-  // The other member may never have opened chat before.
   const otherIdentity = people.find(
     (person) => person.externalUserId === other,
   );
@@ -407,16 +406,13 @@ app.post('/conversations/with/:externalUserId', async (req, reply) => {
         displayName,
       })
       .onConflictDoNothing();
-  } else if (
-    otherIdentity.displayName !== displayName
-  ) {
+  } else if (otherIdentity.displayName !== displayName) {
     await db
       .update(identities)
       .set({ displayName })
       .where(eq(identities.id, otherIdentity.id));
   }
 
-  // Re-fetch both identities after ensuring the contact exists.
   people = await db
     .select()
     .from(identities)
@@ -463,7 +459,6 @@ app.post('/conversations/with/:externalUserId', async (req, reply) => {
 
   return conversation;
 });
-
 
 app.get('/conversations/:id/messages', async (req) => {
   const s = await session(req);
@@ -530,9 +525,11 @@ app.post('/conversations/:id/media', async (req, reply) => {
 
   try {
     file = await req.file();
+
     if (!file) {
       return reply.code(400).send({ error: 'Choose an image to upload.' });
     }
+
     bytes = await file.toBuffer();
   } catch {
     return reply.code(413).send({
@@ -541,6 +538,7 @@ app.post('/conversations/:id/media', async (req, reply) => {
   }
 
   let mediaType;
+
   try {
     mediaType = validateMedia(file.mimetype, bytes.length);
   } catch (error) {
@@ -554,31 +552,38 @@ app.post('/conversations/:id/media', async (req, reply) => {
   }
 
   let objectKey: string;
+
   try {
     objectKey = await saveMedia(id, mediaType, file.mimetype, bytes);
   } catch (error) {
     req.log.error({ err: error }, 'Chat image upload failed');
+
     return reply.code(502).send({
       error: 'Image upload failed. Check the chat server Cloudinary configuration.',
     });
   }
 
   const message = (
-    await db.insert(mediaMessages).values({
-      conversationId: id,
-      senderIdentityId: s.identityId,
-      mediaType,
-      objectKey,
-      contentType: file.mimetype,
-      byteSize: bytes.length,
-    }).returning()
+    await db
+      .insert(mediaMessages)
+      .values({
+        conversationId: id,
+        senderIdentityId: s.identityId,
+        mediaType,
+        objectKey,
+        contentType: file.mimetype,
+        byteSize: bytes.length,
+      })
+      .returning()
   )[0];
 
-  await db.update(conversations)
+  await db
+    .update(conversations)
     .set({ lastActivityAt: new Date() })
     .where(eq(conversations.id, id));
 
   io.to(`conversation:${id}`).emit('message:created', message);
+
   return reply.code(201).send(message);
 });
 
@@ -586,7 +591,6 @@ app.post('/conversations/:id/messages', async (req, reply) => {
   const s = await session(req);
   const id = (req.params as { id: string }).id;
 
-  // Only conversation participants may send messages.
   try {
     await participant(s, id);
   } catch {
@@ -601,7 +605,7 @@ app.post('/conversations/:id/messages', async (req, reply) => {
 
   if (!content || content.length > 5000) {
     return reply.code(400).send({
-      error: 'Message must contain 1â€“5000 characters',
+      error: 'Message must contain 1–5000 characters',
     });
   }
 
@@ -621,13 +625,12 @@ app.post('/conversations/:id/messages', async (req, reply) => {
     .set({ lastActivityAt: new Date() })
     .where(eq(conversations.id, id));
 
-  // Deliver the same saved message to both participants.
   io.to(`conversation:${id}`).emit('message:created', message);
 
   return reply.code(201).send(message);
 });
 
-app.get('/media/:id/url', async (req, reply) => {
+app.get('/media/:id/url', async (req) => {
   const s = await session(req);
   const id = (req.params as { id: string }).id;
 
@@ -639,7 +642,7 @@ app.get('/media/:id/url', async (req, reply) => {
   )[0];
 
   if (!message) {
-    return reply.code(404).send();
+    return { url: null };
   }
 
   await participant(s, message.conversationId);
@@ -675,7 +678,3 @@ await app.listen({
   port: config.PORT,
   host: '0.0.0.0',
 });
-
-
-
-
